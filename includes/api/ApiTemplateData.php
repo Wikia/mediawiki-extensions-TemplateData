@@ -149,9 +149,18 @@ class ApiTemplateData extends ApiBase {
 					// Ignore pages that already have templatedata or that don't exist.
 					continue;
 				}
-				$content = WikiPage::factory( $pageInfo['title'] )
-					->getContent( RevisionRecord::FOR_PUBLIC )
-					->getNativeData();
+
+				// Fandom change - begin - IW-2730: Provide custom hook to allow extensions to fetch default params
+				$wikiPage = WikiPage::factory( $pageInfo['title'] );
+				$hookParams = null;
+
+				if ( !Hooks::run( 'ApiTemplateDataGetRawParams', [ $wikiPage, &$hookParams ] ) ) {
+					$resp[ $pageId ][ 'params' ] = $hookParams;
+					continue;
+				}
+
+				$content = $wikiPage->getContent( RevisionRecord::FOR_PUBLIC )->getNativeData();
+				// Fandom change - end
 				$resp[ $pageId ][ 'params' ] = TemplateDataBlob::getRawParams( $content );
 			}
 		}
