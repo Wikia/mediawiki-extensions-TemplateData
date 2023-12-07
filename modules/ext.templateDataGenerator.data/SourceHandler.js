@@ -27,7 +27,9 @@ function SourceHandler( config ) {
 
 	// Config
 	this.setParentPage( config.parentPage );
-	this.setPageSubLevel( config.isPageSubLevel );
+	// Fandom change - begin - UGC-4495 - Make Template be recognized for getting template data
+	this.setPageSubLevel( config.parentPage.includes('Template') ? true : config.isPageSubLevel );
+	// Fandom change - end
 	this.setFullPageName( config.fullPageName );
 }
 
@@ -59,6 +61,13 @@ SourceHandler.prototype.getApi = function ( page, getTemplateData ) {
 			indexpageids: '1'
 		} );
 	}
+	// Fandom change - begin - UGC-4495 - Make Template use params from API
+	if ( type === 'templatedata' ) {
+		config = $.extend( baseConfig, {
+			includeMissingTitles: true
+		} );
+	}
+	// Fandom change - end
 
 	// Cache
 	if ( !this.apiCache[ page ] || !this.apiCache[ page ][ type ] ) {
@@ -126,19 +135,23 @@ SourceHandler.prototype.getParametersFromTemplateSource = function ( wikitext ) 
 			this.templateSourceCodePromise = $.Deferred().resolve( params );
 		} else if ( this.isPageSubLevel() && this.getParentPage() ) {
 			// Get the content of the parent
-			this.templateSourceCodePromise = this.getApi( this.getParentPage() ).then(
+			// Fandom change - begin - UGC-4495 - Make Template use params from API
+			this.templateSourceCodePromise = this.getApi( this.getParentPage(), wikitext.includes('<infobox>') ).then(
 				( resp ) => {
 					let pageContent = '';
 
 					// Verify that we have a sane response from the API.
 					// This is particularly important for unit tests, since the
 					// requested page from the API is the Qunit module and has no content
-					if (
+					if ( resp.pages && Object.values(resp.pages).length ) {
+						return Object.keys(Object.values(resp.pages)[0].params);
+					} else if (
 						resp.query.pages[ resp.query.pageids[ 0 ] ].revisions &&
 						resp.query.pages[ resp.query.pageids[ 0 ] ].revisions[ 0 ]
 					) {
 						pageContent = resp.query.pages[ resp.query.pageids[ 0 ] ].revisions[ 0 ][ '*' ];
 					}
+					// Fandom change - end
 					return this.extractParametersFromTemplateCode( pageContent );
 				},
 				// Resolve an empty parameters array
